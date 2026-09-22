@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Controle Financeiro</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--tx:#1f2937;--mut:#6b7280;--bd:#e5e7eb;--pri:#4f46e5;--pri2:#4338ca;--ok:#16a34a;--bad:#dc2626}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--tx)}
+button,input,select,textarea{font:inherit}
+.hidden{display:none!important}
+header{background:var(--card);border-bottom:1px solid var(--bd);position:sticky;top:0;z-index:5}
+.hwrap{max-width:1100px;margin:0 auto;padding:10px 16px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.brand{font-weight:700;font-size:18px}
+nav{display:flex;gap:4px;flex-wrap:wrap;flex:1}
+nav button{background:none;border:0;padding:8px 12px;border-radius:8px;cursor:pointer;color:var(--mut);font-weight:500}
+nav button.on{background:#eef2ff;color:var(--pri)}
+main{max-width:1100px;margin:0 auto;padding:16px 16px 100px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.kpi .l{color:var(--mut);font-size:13px}
+.kpi .v{font-size:24px;font-weight:700;margin-top:4px}
+.pos{color:var(--ok)}.neg{color:var(--bad)}
+h2{margin:0 0 12px;font-size:20px}
+h3{margin:0 0 10px;font-size:15px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:end;margin-bottom:12px}
+.bar label{display:flex;flex-direction:column;font-size:12px;color:var(--mut);gap:2px}
+input,select,textarea{border:1px solid var(--bd);border-radius:8px;padding:8px 10px;background:#fff;color:var(--tx);min-width:0}
+input:focus,select:focus,textarea:focus{outline:2px solid #c7d2fe;border-color:var(--pri)}
+.btn{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;font-weight:600}
+.btn:hover{background:var(--pri2)}
+.btn.sec{background:#fff;color:var(--tx);border:1px solid var(--bd)}
+.btn.sec:hover{background:#f3f4f6}
+.btn.dng{background:var(--bad)}
+.btn.sm{padding:5px 9px;font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;color:var(--mut);font-weight:500;font-size:12px;padding:8px;border-bottom:1px solid var(--bd)}
+td{padding:9px 8px;border-bottom:1px solid #f0f1f3;vertical-align:middle}
+td.r,th.r{text-align:right}
+.tw{overflow-x:auto}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:2px 9px;border-radius:99px;font-size:12px;color:#fff;white-space:nowrap}
+.fab{position:fixed;right:20px;bottom:20px;z-index:6;box-shadow:0 6px 18px rgba(79,70,229,.4);border-radius:99px;padding:14px 20px;font-size:15px}
+.modal{position:fixed;inset:0;background:rgba(17,24,39,.5);display:flex;align-items:center;justify-content:center;z-index:20;padding:12px}
+.mbox{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:460px;max-height:94vh;overflow:auto}
+.mbox h2{margin-bottom:14px}
+.f{display:flex;flex-direction:column;gap:4px;margin-bottom:12px;font-size:13px;color:var(--mut)}
+.f input,.f select,.f textarea{font-size:15px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:0;margin-bottom:12px;border:1px solid var(--bd);border-radius:8px;overflow:hidden}
+.seg button{border:0;padding:9px;background:#fff;cursor:pointer;font-weight:600;color:var(--mut)}
+.seg button.on.d{background:var(--bad);color:#fff}
+.seg button.on.r{background:var(--ok);color:#fff}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+#toast{position:fixed;left:50%;bottom:80px;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:8px;z-index:30;font-size:14px}
+.login{max-width:360px;margin:12vh auto;padding:0 16px}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin:6px 0}
+.muted{color:var(--mut);font-size:13px}
+.cbox{position:relative;height:280px}
+.dot{width:12px;height:12px;border-radius:50%;display:inline-block}
+.catrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f1f3}
+.catrow .n{flex:1}
+@media(max-width:600px){.hwrap{gap:8px}.kpi .v{font-size:20px}.g2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginView" class="login hidden">
+  <div class="card">
+    <h2 style="text-align:center">💰 Controle Financeiro</h2>
+    <form id="loginForm">
+      <div class="f hidden" id="nomeF">Nome<input id="lnome" autocomplete="name"></div>
+      <div class="f">Usuário<input id="luser" type="text" required autocomplete="username"></div>
+      <div class="f">Senha<input id="lsenha" type="password" required minlength="6" autocomplete="current-password"></div>
+      <div class="err" id="lerr"></div>
+      <button class="btn" style="width:100%" id="lbtn">Entrar</button>
+    </form>
+    <p class="muted" style="text-align:center;margin-bottom:0">
+      <a href="#" id="ltoggle">Não tem conta? Cadastre-se</a>
+    </p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appView" class="hidden">
+  <header><div class="hwrap">
+    <span class="brand">💰 Financeiro</span>
+    <nav id="nav">
+      <button data-v="dash" class="on">Dashboard</button>
+      <button data-v="extrato">Extrato / Fluxo de caixa</button>
+      <button data-v="cats">Categorias</button>
+      <button data-v="config">Configurações</button>
+    </nav>
+  </div></header>
+  <main id="main"></main>
+  <button class="btn fab" id="fab">+ Novo lançamento</button>
+</div>
+
+<div id="modalRoot"></div>
+<div id="toast" class="hidden"></div>
+
+<script>
+// ====== CONFIG: cole aqui a URL e a anon key do SEU projeto Supabase ======
+const SUPABASE_URL = 'https://opptajajomsunbooafhr.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9wcHRhamFqb21zdW5ib29hZmhyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwMjk4MTYsImV4cCI6MjEwNTYwNTgxNn0.TkNbGBZjofSgaA7jC0KoU-IRwlD3noGqpsre-NBi5Bs';
+// ==========================================================================
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const S = { user:null, cats:[], contas:[], tx:[], view:'dash',
+  dash:{per:'mes', ini:'', fim:'', conta:'', tipo:''},
+  ext:{cat:'', conta:'', tipo:'', q:'', ini:'', fim:''} };
+const charts = {};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const brl = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const pad = n => String(n).padStart(2,'0');
+const iso = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const todayS = () => iso(new Date());
+const addDays = (s,n) => { const [y,m,d]=s.split('-').map(Number); return iso(new Date(y,m-1,d+n)); };
+const fmtD = s => s.split('-').reverse().join('/');
+const sgn = t => t==='receita' ? 1 : -1;
+const catById = id => S.cats.find(c => c.id===id);
+
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.remove('hidden'); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.add('hidden'),2500); }
+
+// ---------- Auth ----------
+let signup = false;
+$('#ltoggle').onclick = e => { e.preventDefault(); signup=!signup;
+  $('#nomeF').classList.toggle('hidden',!signup);
+  $('#lbtn').textContent = signup ? 'Criar conta' : 'Entrar';
+  $('#ltoggle').textContent = signup ? 'Já tenho conta' : 'Não tem conta? Cadastre-se';
+  $('#lerr').textContent=''; };
+// Login interno: o Supabase Auth exige um e-mail, então o usuário digitado
+// vira "usuario@financas.local" por baixo dos panos (sem envio real de e-mail).
+const USER_DOMAIN = '@financas.local';
+const toEmail = u => u.trim().toLowerCase().replace(/\s+/g,'') + USER_DOMAIN;
+$('#loginForm').onsubmit = async e => { e.preventDefault(); $('#lerr').textContent='';
+  const usuario=$('#luser').value.trim(), email=toEmail(usuario), password=$('#lsenha').value;
+  let r;
+  if(signup) r = await sb.auth.signUp({email,password,options:{data:{nome:$('#lnome').value.trim()||usuario, usuario}}});
+  else r = await sb.auth.signInWithPassword({email,password});
+  if(r.error){ $('#lerr').textContent = r.error.message; return; }
+  if(signup && !r.data.session){ $('#lerr').textContent='Conta criada. Faça login.'; return; }
+  boot(); };
+
+async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  if(!session){ $('#loginView').classList.remove('hidden'); $('#appView').classList.add('hidden'); return; }
+  S.user = session.user;
+  $('#loginView').classList.add('hidden'); $('#appView').classList.remove('hidden');
+  await loadAll(); render();
+}
+async function loadAll(){
+  const [c, a] = await Promise.all([
+    sb.from('categorias').select('*').order('nome'),
+    sb.from('contas').select('*').order('criado_em')]);
+  S.cats = c.data||[]; S.contas = a.data||[];
+  let all=[], from=0;
+  for(;;){
+    const { data, error } = await sb.from('transacoes').select('*').is('excluido_em',null)
+      .order('data',{ascending:false}).order('criado_em',{ascending:false}).range(from,from+999);
+    if(error){ toast('Erro ao carregar: '+error.message); break; }
+    all = all.concat(data); if(data.length<1000) break; from+=1000;
+  }
+  S.tx = all;
+}
+
+// ---------- Navegação ----------
+$('#nav').onclick = e => { const b=e.target.closest('button'); if(!b) return; S.view=b.dataset.v;
+  document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x===b)); render(); };
+$('#fab').onclick = () => openTx();
+function render(){
+  Object.values(charts).forEach(c=>c.destroy()); for(const k in charts) delete charts[k];
+  ({dash:renderDash, extrato:renderExtrato, cats:renderCats, config:renderConfig})[S.view]();
+}
+
+// ---------- Cálculos ----------
+function periodRange(f){
+  const n=new Date(), y=n.getFullYear(), m=n.getMonth();
+  if(f.per==='mes') return [iso(new Date(y,m,1)), iso(new Date(y,m+1,0))];
+  if(f.per==='tri'){ const q=Math.floor(m/3)*3; return [iso(new Date(y,q,1)), iso(new Date(y,q+3,0))]; }
+  if(f.per==='ano') return [`${y}-01-01`,`${y}-12-31`];
+  return [f.ini||'0000-01-01', f.fim||'9999-12-31'];
+}
+const contasSel = id => id ? S.contas.filter(c=>c.id===id) : S.contas;
+function saldoAte(dataLimite, contaId){
+  const ids = new Set(contasSel(contaId).map(c=>c.id));
+  let s = contasSel(contaId).reduce((a,c)=>a+Number(c.saldo_inicial),0);
+  for(const t of S.tx){
+    if(t.data>dataLimite) continue;
+    if(contaId ? t.conta_id!==contaId : (t.conta_id && !ids.has(t.conta_id))) continue;
+    s += sgn(t.tipo)*Number(t.valor);
+  }
+  return s;
+}
+function periodOptions(sel){ return [['mes','Mês atual'],['tri','Trimestre'],['ano','Ano'],['custom','Personalizado']]
+  .map(([v,l])=>`<option value="${v}" ${sel===v?'selected':''}>${l}</option>`).join(''); }
+const contaOptions = sel => `<option value="">Todas as contas</option>`+S.contas.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>${esc(c.nome)}</option>`).join('');
+const chipCat = c => c ? `<span class="chip" style="background:${esc(c.cor)}">${esc(c.icone)} ${esc(c.nome)}</span>` : '—';
+
+function mkChart(id, cfg){ const el=document.getElementById(id); if(el) charts[id]=new Chart(el,cfg); }
+const noData = (id,msg='Sem dados no período') => { const el=document.getElementById(id); if(el) el.parentElement.innerHTML=`<p class="muted" style="text-align:center;padding-top:100px">${msg}</p>`; };
+
+// ---------- Dashboard ----------
+function renderDash(){
+  const f=S.dash, [ini,fim]=periodRange(f), hoje=todayS();
+  const inRange = S.tx.filter(t=>t.data>=ini && t.data<=fim && (!f.conta||t.conta_id===f.conta));
+  const filtered = inRange.filter(t=>!f.tipo||t.tipo===f.tipo);
+  const ent = inRange.filter(t=>t.tipo==='receita').reduce((a,t)=>a+Number(t.valor),0);
+  const sai = inRange.filter(t=>t.tipo==='despesa').reduce((a,t)=>a+Number(t.valor),0);
+  const res = ent-sai, saldo = saldoAte(hoje, f.conta);
+
+  $('#main').innerHTML = `
+  <div class="bar">
+    <label>Período<select id="dper">${periodOptions(f.per)}</select></label>
+    <label class="${f.per==='custom'?'':'hidden'}">De<input type="date" id="dini" value="${f.ini}"></label>
+    <label class="${f.per==='custom'?'':'hidden'}">Até<input type="date" id="dfim" value="${f.fim}"></label>
+    <label>Conta<select id="dconta">${contaOptions(f.conta)}</select></label>
+    <label>Tipo de categoria<select id="dtipo"><option value="">Todas</option>
+      <option value="despesa" ${f.tipo==='despesa'?'selected':''}>Despesas</option>
+      <option value="receita" ${f.tipo==='receita'?'selected':''}>Receitas</option></select></label>
+  </div>
+  <div class="grid g4" style="margin-bottom:12px">
+    <div class="card kpi"><div class="l">Saldo atual</div><div class="v ${saldo<0?'neg':''}">${brl(saldo)}</div></div>
+    <div class="card kpi"><div class="l">Entradas no período</div><div class="v pos">${brl(ent)}</div></div>
+    <div class="card kpi"><div class="l">Saídas no período</div><div class="v neg">${brl(sai)}</div></div>
+    <div class="card kpi"><div class="l">Resultado</div><div class="v ${res>=0?'pos':'neg'}">${brl(res)}</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h3>Gastos por categoria</h3><div class="cbox"><canvas id="chDonut"></canvas></div></div>
+    <div class="card"><h3>Receitas x despesas por mês</h3><div class="cbox"><canvas id="chMes"></canvas></div></div>
+    <div class="card"><h3>Evolução do saldo</h3><div class="cbox"><canvas id="chSaldo"></canvas></div></div>
+    <div class="card"><h3>Top 5 categorias de maior gasto</h3><div class="cbox"><canvas id="chTop"></canvas></div></div>
+  </div>`;
+  $('#dper').onchange=e=>{f.per=e.target.value;renderDash()};
+  $('#dini')&&($('#dini').onchange=e=>{f.ini=e.target.value;renderDash()});
+  $('#dfim')&&($('#dfim').onchange=e=>{f.fim=e.target.value;renderDash()});
+  $('#dconta').onchange=e=>{f.conta=e.target.value;renderDash()};
+  $('#dtipo').onchange=e=>{f.tipo=e.target.value;renderDash()};
+
+  // Gastos por categoria (donut) e Top 5 — só despesas, respeitando filtro de tipo
+  const porCat = {};
+  filtered.filter(t=>t.tipo==='despesa').forEach(t=>porCat[t.categoria_id]=(porCat[t.categoria_id]||0)+Number(t.valor));
+  const arr = Object.entries(porCat).map(([id,v])=>({c:catById(id),v})).filter(x=>x.c).sort((a,b)=>b.v-a.v);
+  if(!arr.length){ noData('chDonut'); noData('chTop'); }
+  else{
+    mkChart('chDonut',{type:'doughnut',data:{labels:arr.map(x=>x.c.nome),datasets:[{data:arr.map(x=>x.v),backgroundColor:arr.map(x=>x.c.cor)}]},
+      options:{maintainAspectRatio:false,plugins:{legend:{position:'right'},tooltip:{callbacks:{label:c=>`${c.label}: ${brl(c.raw)}`}}}}});
+    const top=arr.slice(0,5);
+    mkChart('chTop',{type:'bar',data:{labels:top.map(x=>x.c.nome),datasets:[{data:top.map(x=>x.v),backgroundColor:top.map(x=>x.c.cor)}]},
+      options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>brl(c.raw)}}}}});
+  }
+  // Receitas x despesas por mês
+  const meses = {};
+  filtered.forEach(t=>{ const k=t.data.slice(0,7); meses[k]=meses[k]||{r:0,d:0}; meses[k][t.tipo==='receita'?'r':'d']+=Number(t.valor); });
+  const ks = Object.keys(meses).sort();
+  if(!ks.length) noData('chMes');
+  else mkChart('chMes',{type:'bar',data:{labels:ks.map(k=>k.split('-').reverse().join('/')),datasets:[
+      {label:'Receitas',data:ks.map(k=>meses[k].r),backgroundColor:'#22c55e'},
+      {label:'Despesas',data:ks.map(k=>meses[k].d),backgroundColor:'#ef4444'}]},
+    options:{maintainAspectRatio:false,plugins:{tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${brl(c.raw)}`}}}}});
+  // Evolução do saldo (diário no período, limitado a hoje se período for aberto no futuro)
+  const fimG = fim<hoje ? fim : (fim>hoje && f.per!=='custom' ? fim : fim);
+  const first = ini==='0000-01-01' ? (S.tx.length?S.tx[S.tx.length-1].data:hoje) : ini;
+  const last = fimG==='9999-12-31' ? hoje : fimG;
+  const pts = saldoSerie(first,last,f.conta);
+  if(pts.labels.length<1) noData('chSaldo');
+  else mkChart('chSaldo',{type:'line',data:{labels:pts.labels.map(fmtD),datasets:[{label:'Saldo',data:pts.data,borderColor:'#4f46e5',backgroundColor:'rgba(79,70,229,.1)',fill:true,pointRadius:0,tension:.2}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>brl(c.raw)}}}}});
+}
+function saldoSerie(ini,fim,contaId){
+  const ids=new Set(contasSel(contaId).map(c=>c.id));
+  const rel = S.tx.filter(t=>contaId ? t.conta_id===contaId : (!t.conta_id||ids.has(t.conta_id)));
+  let s = contasSel(contaId).reduce((a,c)=>a+Number(c.saldo_inicial),0);
+  const delta={};
+  rel.forEach(t=>{ const v=sgn(t.tipo)*Number(t.valor); if(t.data<ini) s+=v; else if(t.data<=fim) delta[t.data]=(delta[t.data]||0)+v; });
+  const labels=[],data=[]; let d=ini, guard=0;
+  while(d<=fim && guard++<3700){ s+=delta[d]||0; labels.push(d); data.push(Number(s.toFixed(2))); d=addDays(d,1); }
+  return {labels,data};
+}
+
+// ---------- Extrato / Fluxo de caixa ----------
+function renderExtrato(){
+  const f=S.ext, hoje=todayS();
+  const saldo=saldoAte(hoje,f.conta);
+  const proj = n => saldoAte(addDays(hoje,n), f.conta);
+  const list = S.tx.filter(t=>(!f.cat||t.categoria_id===f.cat)&&(!f.conta||t.conta_id===f.conta)&&(!f.tipo||t.tipo===f.tipo)
+    &&(!f.ini||t.data>=f.ini)&&(!f.fim||t.data<=f.fim)&&(!f.q||(t.descricao||'').toLowerCase().includes(f.q.toLowerCase())));
+  const tot = list.reduce((a,t)=>a+sgn(t.tipo)*Number(t.valor),0);
+  $('#main').innerHTML = `
+  <h2>Fluxo de caixa</h2>
+  <div class="grid g4" style="margin-bottom:12px">
+    <div class="card kpi"><div class="l">Saldo atual</div><div class="v ${saldo<0?'neg':''}">${brl(saldo)}</div></div>
+    ${[30,60,90].map(n=>{const p=proj(n);return `<div class="card kpi"><div class="l">Projetado em ${n} dias</div><div class="v ${p<0?'neg':''}">${brl(p)}</div></div>`}).join('')}
+  </div>
+  <div class="card" style="margin-bottom:12px"><h3>Saldo acumulado (30 dias atrás → 90 dias à frente; tracejado = projeção)</h3>
+    <div class="cbox"><canvas id="chFluxo"></canvas></div></div>
+  <div class="card">
+    <h3>Extrato detalhado</h3>
+    <div class="bar">
+      <label>Busca<input id="eq" value="${esc(f.q)}" placeholder="descrição"></label>
+      <label>Categoria<select id="ecat"><option value="">Todas</option>${S.cats.map(c=>`<option value="${c.id}" ${f.cat===c.id?'selected':''}>${esc(c.nome)} (${c.tipo})</option>`).join('')}</select></label>
+      <label>Conta<select id="econta">${contaOptions(f.conta)}</select></label>
+      <label>Tipo<select id="etipo"><option value="">Todos</option><option value="despesa" ${f.tipo==='despesa'?'selected':''}>Despesa</option><option value="receita" ${f.tipo==='receita'?'selected':''}>Receita</option></select></label>
+      <label>De<input type="date" id="eini" value="${f.ini}"></label>
+      <label>Até<input type="date" id="efim" value="${f.fim}"></label>
+      <button class="btn sec" id="ecsv">⬇ CSV</button>
+    </div>
+    <div class="tw"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Conta</th><th class="r">Valor</th><th></th></tr></thead><tbody>
+    ${list.map(t=>{const c=catById(t.categoria_id), ct=S.contas.find(x=>x.id===t.conta_id);
+      return `<tr><td>${fmtD(t.data)}${t.data>hoje?' <span class="muted">(futuro)</span>':''}</td>
+      <td>${esc(t.descricao)||'<span class="muted">—</span>'}${t.recorrente?' 🔁':''}</td><td>${chipCat(c)}</td><td>${esc(ct?.nome||'—')}</td>
+      <td class="r ${t.tipo==='receita'?'pos':'neg'}">${t.tipo==='receita'?'+':'−'} ${brl(t.valor)}</td>
+      <td class="r" style="white-space:nowrap"><button class="btn sec sm" onclick="openTx('${t.id}')">Editar</button> <button class="btn sec sm" onclick="delTx('${t.id}')">Excluir</button></td></tr>`}).join('')
+      || '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Nenhum lançamento encontrado.</td></tr>'}
+    </tbody></table></div>
+    <p class="muted">${list.length} lançamento(s) · Resultado do filtro: <b class="${tot>=0?'pos':'neg'}">${brl(tot)}</b></p>
+  </div>`;
+  const bind=(id,k,ev='onchange')=>{ $(id)[ev]=e=>{f[k]=e.target.value;renderExtrato();}; };
+  bind('#ecat','cat');bind('#econta','conta');bind('#etipo','tipo');bind('#eini','ini');bind('#efim','fim');
+  $('#eq').onchange=e=>{f.q=e.target.value;renderExtrato();};
+  $('#ecsv').onclick=()=>exportCsv(list);
+  const s=saldoSerie(addDays(hoje,-30),addDays(hoje,90),f.conta);
+  mkChart('chFluxo',{type:'line',data:{labels:s.labels.map(fmtD),datasets:[{data:s.data,borderColor:'#4f46e5',pointRadius:0,tension:.2,
+      segment:{borderDash:c=>s.labels[c.p1DataIndex]>hoje?[6,4]:undefined}}]},
+    options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>brl(c.raw)}}}}});
+}
+function exportCsv(list){
+  const q = v => `"${String(v??'').replace(/"/g,'""')}"`;
+  const rows = [['Data','Tipo','Categoria','Conta','Forma de pagamento','Descrição','Valor']].concat(list.map(t=>[
+    t.data,t.tipo,catById(t.categoria_id)?.nome,S.contas.find(c=>c.id===t.conta_id)?.nome,t.forma_pagamento,t.descricao,
+    (sgn(t.tipo)*Number(t.valor)).toFixed(2).replace('.',',')]));
+  const blob = new Blob(['﻿'+rows.map(r=>r.map(q).join(';')).join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`extrato_${todayS()}.csv`; a.click(); URL.revokeObjectURL(a.href);
+}
+async function delTx(id){
+  if(!confirm('Excluir este lançamento?')) return;
+  const { error } = await sb.from('transacoes').update({excluido_em:new Date().toISOString()}).eq('id',id);
+  if(error) return toast('Erro: '+error.message);
+  S.tx = S.tx.filter(t=>t.id!==id); toast('Lançamento excluído'); render();
+}
+
+// ---------- Modal: novo/editar lançamento ----------
+const FORMAS=['Dinheiro','Cartão','Pix','Conta'];
+function openTx(id){
+  const ed = id ? S.tx.find(t=>t.id===id) : null;
+  let tipo = ed?.tipo || 'despesa';
+  const root=$('#modalRoot');
+  const contaDef = ed?.conta_id || S.contas[0]?.id || '';
+  root.innerHTML = `<div class="modal"><div class="mbox"><h2>${ed?'Editar':'Novo'} lançamento</h2>
+    <form id="txf">
+      <div class="seg"><button type="button" data-t="despesa">Despesa</button><button type="button" data-t="receita">Receita</button></div>
+      <div class="row2">
+        <label class="f">Valor (R$)<input id="fv" type="number" step="0.01" min="0.01" inputmode="decimal" required value="${ed?ed.valor:''}"></label>
+        <label class="f">Data<input id="fd" type="date" required value="${ed?ed.data:todayS()}"></label>
+      </div>
+      <label class="f">Categoria<select id="fc" required></select></label>
+      <div id="newcat" class="hidden card" style="margin-bottom:12px;padding:10px">
+        <div class="row2"><label class="f">Nome<input id="ncn"></label><label class="f">Ícone (emoji)<input id="nci" value="🏷️" maxlength="4"></label></div>
+        <label class="f">Cor<input id="ncc" type="color" value="#6366f1" style="height:36px;padding:2px"></label>
+        <button type="button" class="btn sm" id="ncsave">Criar categoria</button>
+      </div>
+      <div class="row2">
+        <label class="f">Conta<select id="fa">${S.contas.map(c=>`<option value="${c.id}" ${c.id===contaDef?'selected':''}>${esc(c.nome)}</option>`).join('')}</select></label>
+        <label class="f">Forma de pagamento<select id="ff"><option value="">—</option>${FORMAS.map(x=>`<option ${ed?.forma_pagamento===x?'selected':''}>${x}</option>`).join('')}</select></label>
+      </div>
+      <label class="f">Descrição<input id="fdesc" value="${esc(ed?.descricao||'')}"></label>
+      <div class="row2" style="align-items:end">
+        <label class="f" style="flex-direction:row;align-items:center;gap:8px;color:var(--tx)"><input type="checkbox" id="fr" ${ed?.recorrente?'checked':''} style="width:auto"> Recorrente</label>
+        <label class="f ${ed?.recorrente?'':'hidden'}" id="frq">Frequência<select id="ffq"><option value="mensal" ${ed?.frequencia==='mensal'?'selected':''}>Mensal</option><option value="semanal" ${ed?.frequencia==='semanal'?'selected':''}>Semanal</option></select></label>
+      </div>
+      <div class="err" id="ferr"></div>
+      <div class="acts">
+        <button class="btn" id="fsave">Salvar</button>
+        ${ed?'':'<button type="button" class="btn sec" id="fmore">Salvar e lançar outro</button>'}
+        <button type="button" class="btn sec" id="fcancel">Cancelar</button>
+      </div>
+    </form></div></div>`;
+
+  const fillCats = sel => {
+    const opts = S.cats.filter(c=>c.tipo===tipo && (!c.oculta || c.id===sel));
+    $('#fc').innerHTML = `<option value="">Selecione…</option>` + opts.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${esc(c.icone)} ${esc(c.nome)}</option>`).join('') + `<option value="__new">+ Criar nova categoria…</option>`;
+  };
+  const setTipo = t => { tipo=t;
+    root.querySelectorAll('.seg button').forEach(b=>{b.className = b.dataset.t===t ? 'on '+(t==='despesa'?'d':'r') : '';});
+    fillCats(ed && ed.tipo===t ? ed.categoria_id : ''); $('#newcat').classList.add('hidden'); };
+  root.querySelector('.seg').onclick=e=>{const b=e.target.closest('button'); if(b) setTipo(b.dataset.t);};
+  setTipo(tipo);
+  $('#fc').onchange=e=>$('#newcat').classList.toggle('hidden', e.target.value!=='__new');
+  $('#fr').onchange=e=>$('#frq').classList.toggle('hidden',!e.target.checked);
+  $('#ncsave').onclick=async()=>{
+    const nome=$('#ncn').value.trim(); if(!nome) return $('#ferr').textContent='Informe o nome da categoria.';
+    const { data, error } = await sb.from('categorias').insert({usuario_id:S.user.id,nome,tipo,cor:$('#ncc').value,icone:$('#nci').value||'🏷️'}).select().single();
+    if(error) return $('#ferr').textContent=error.message;
+    S.cats.push(data); $('#ferr').textContent=''; fillCats(data.id); $('#newcat').classList.add('hidden'); };
+  $('#fcancel').onclick=()=>root.innerHTML='';
+
+  async function save(again){
+    const err=$('#ferr'); err.textContent='';
+    const valor=parseFloat($('#fv').value), data=$('#fd').value, cat=$('#fc').value;
+    if(!(valor>0)) return err.textContent='O valor deve ser maior que zero.';
+    if(!data) return err.textContent='Informe a data.';
+    if(!cat||cat==='__new') return err.textContent='Selecione uma categoria.';
+    const c=catById(cat); if(!c||c.tipo!==tipo) return err.textContent='A categoria não é compatível com o tipo.';
+    const rec=$('#fr').checked;
+    const row={categoria_id:cat,conta_id:$('#fa').value||null,tipo,valor,data,descricao:$('#fdesc').value.trim()||null,
+      forma_pagamento:$('#ff').value||null,recorrente:rec,frequencia:rec?$('#ffq').value:null};
+    const q = ed ? sb.from('transacoes').update(row).eq('id',ed.id).select().single()
+                 : sb.from('transacoes').insert({...row,usuario_id:S.user.id}).select().single();
+    const { data:saved, error } = await q;
+    if(error) return err.textContent=error.message;
+    if(ed) S.tx = S.tx.map(t=>t.id===ed.id?saved:t); else S.tx.push(saved);
+    S.tx.sort((a,b)=>b.data.localeCompare(a.data)||String(b.criado_em).localeCompare(String(a.criado_em)));
+    toast('Lançamento salvo ✓'); render();
+    if(again){ openTx(); $('#fd').value=data; } else root.innerHTML='';
+  }
+  $('#txf').onsubmit=e=>{e.preventDefault(); save(false);};
+  const more=$('#fmore'); if(more) more.onclick=()=>save(true);
+  setTimeout(()=>$('#fv').focus(),50);
+}
+
+// ---------- Categorias ----------
+function renderCats(){
+  const count = id => S.tx.filter(t=>t.categoria_id===id).length;
+  const blk = (tipo,titulo)=>`<div class="card"><h3>${titulo}</h3>${S.cats.filter(c=>c.tipo===tipo).map(c=>`
+    <div class="catrow" style="${c.oculta?'opacity:.5':''}">
+      <span class="chip" style="background:${esc(c.cor)}">${esc(c.icone)}</span>
+      <span class="n">${esc(c.nome)} ${c.is_padrao?'<span class="muted">(padrão)</span>':''}${c.oculta?' <span class="muted">(oculta)</span>':''}<br><span class="muted">${count(c.id)} lançamento(s)</span></span>
+      <button class="btn sec sm" onclick="editCat('${c.id}')">Editar</button>
+      ${c.is_padrao?`<button class="btn sec sm" onclick="toggleHide('${c.id}')">${c.oculta?'Mostrar':'Ocultar'}</button>`:`<button class="btn sec sm" onclick="delCat('${c.id}')">Excluir</button>`}
+    </div>`).join('')}</div>`;
+  $('#main').innerHTML = `<h2>Categorias <button class="btn sm" style="float:right" onclick="editCat()">+ Nova categoria</button></h2>
+    <div class="grid g2">${blk('despesa','Despesas')}${blk('receita','Receitas')}</div>`;
+}
+function editCat(id){
+  const c = id ? catById(id) : null;
+  $('#modalRoot').innerHTML = `<div class="modal"><div class="mbox"><h2>${c?'Editar':'Nova'} categoria</h2><form id="cf">
+    <label class="f">Nome<input id="cn" required value="${esc(c?.nome||'')}"></label>
+    <div class="row2"><label class="f">Ícone (emoji)<input id="ci" maxlength="4" value="${esc(c?.icone||'🏷️')}"></label>
+    <label class="f">Cor<input id="cc" type="color" value="${c?.cor||'#6366f1'}" style="height:38px;padding:2px"></label></div>
+    ${c?'':`<label class="f">Tipo<select id="ct"><option value="despesa">Despesa</option><option value="receita">Receita</option></select></label>`}
+    <div class="err" id="cerr"></div>
+    <div class="acts"><button class="btn">Salvar</button><button type="button" class="btn sec" id="cx">Cancelar</button></div></form></div></div>`;
+  $('#cx').onclick=()=>$('#modalRoot').innerHTML='';
+  $('#cf').onsubmit=async e=>{ e.preventDefault();
+    const row={nome:$('#cn').value.trim(),icone:$('#ci').value||'🏷️',cor:$('#cc').value};
+    const r = c ? await sb.from('categorias').update(row).eq('id',c.id).select().single()
+                : await sb.from('categorias').insert({...row,tipo:$('#ct').value,usuario_id:S.user.id}).select().single();
+    if(r.error) return $('#cerr').textContent=r.error.message;
+    S.cats = c ? S.cats.map(x=>x.id===c.id?r.data:x) : S.cats.concat(r.data);
+    S.cats.sort((a,b)=>a.nome.localeCompare(b.nome)); $('#modalRoot').innerHTML=''; toast('Categoria salva ✓'); render(); };
+}
+async function toggleHide(id){
+  const c=catById(id); const { error } = await sb.from('categorias').update({oculta:!c.oculta}).eq('id',id);
+  if(error) return toast('Erro: '+error.message); c.oculta=!c.oculta; render();
+}
+async function delCat(id){
+  const c=catById(id), n=S.tx.filter(t=>t.categoria_id===id).length;
+  if(!n){ if(!confirm(`Excluir a categoria "${c.nome}"?`)) return; return finishDel(id,null); }
+  const outras=S.cats.filter(x=>x.tipo===c.tipo&&x.id!==id);
+  $('#modalRoot').innerHTML=`<div class="modal"><div class="mbox"><h2>Excluir "${esc(c.nome)}"</h2>
+    <p>Há ${n} lançamento(s) nesta categoria. Escolha para qual categoria movê-los antes de excluir:</p>
+    <label class="f">Realocar para<select id="rc">${outras.map(x=>`<option value="${x.id}">${esc(x.icone)} ${esc(x.nome)}</option>`).join('')}</select></label>
+    <div class="err" id="rerr"></div>
+    <div class="acts"><button class="btn dng" id="rok">Realocar e excluir</button><button class="btn sec" id="rx">Cancelar</button></div></div></div>`;
+  $('#rx').onclick=()=>$('#modalRoot').innerHTML='';
+  $('#rok').onclick=()=>finishDel(id,$('#rc').value);
+}
+async function finishDel(id,dest){
+  if(dest){
+    // inclui lançamentos já excluídos logicamente, para não violar a FK
+    const { error } = await sb.from('transacoes').update({categoria_id:dest}).eq('categoria_id',id);
+    if(error){ const e=$('#rerr'); return e?e.textContent=error.message:toast('Erro: '+error.message); }
+    S.tx.forEach(t=>{ if(t.categoria_id===id) t.categoria_id=dest; });
+  }
+  const { error } = await sb.from('categorias').delete().eq('id',id);
+  if(error) return toast('Erro: '+error.message+' (pode haver lançamentos excluídos vinculados)');
+  S.cats=S.cats.filter(c=>c.id!==id); $('#modalRoot').innerHTML=''; toast('Categoria excluída'); render();
+}
+
+// ---------- Configurações ----------
+function renderConfig(){
+  $('#main').innerHTML=`<h2>Configurações</h2>
+  <div class="card" style="margin-bottom:12px"><h3>Conta de acesso</h3><p>${esc(S.user.user_metadata?.usuario || (S.user.email||'').split('@')[0])}</p>
+    <button class="btn sec" id="out">Sair</button></div>
+  <div class="card"><h3>Contas / cartões <button class="btn sm" style="float:right" onclick="editConta()">+ Nova conta</button></h3>
+    <p class="muted">Saldo atual = saldo inicial das contas + receitas − despesas até hoje.</p>
+    ${S.contas.map(c=>`<div class="catrow"><span class="n">${esc(c.nome)} <span class="muted">(${c.tipo}) · saldo inicial ${brl(c.saldo_inicial)}</span></span>
+      <button class="btn sec sm" onclick="editConta('${c.id}')">Editar</button>
+      <button class="btn sec sm" onclick="delConta('${c.id}')">Excluir</button></div>`).join('')}</div>`;
+  $('#out').onclick=async()=>{ await sb.auth.signOut(); S.user=null; boot(); };
+}
+function editConta(id){
+  const c=id?S.contas.find(x=>x.id===id):null;
+  $('#modalRoot').innerHTML=`<div class="modal"><div class="mbox"><h2>${c?'Editar':'Nova'} conta</h2><form id="af">
+    <label class="f">Nome<input id="an" required value="${esc(c?.nome||'')}"></label>
+    <div class="row2"><label class="f">Tipo<select id="at">${[['corrente','Conta corrente'],['cartao','Cartão'],['carteira','Carteira']].map(([v,l])=>`<option value="${v}" ${c?.tipo===v?'selected':''}>${l}</option>`).join('')}</select></label>
+    <label class="f">Saldo inicial<input id="as" type="number" step="0.01" value="${c?c.saldo_inicial:0}"></label></div>
+    <div class="err" id="aerr"></div>
+    <div class="acts"><button class="btn">Salvar</button><button type="button" class="btn sec" id="ax">Cancelar</button></div></form></div></div>`;
+  $('#ax').onclick=()=>$('#modalRoot').innerHTML='';
+  $('#af').onsubmit=async e=>{ e.preventDefault();
+    const row={nome:$('#an').value.trim(),tipo:$('#at').value,saldo_inicial:parseFloat($('#as').value)||0};
+    const r=c?await sb.from('contas').update(row).eq('id',c.id).select().single():await sb.from('contas').insert({...row,usuario_id:S.user.id}).select().single();
+    if(r.error) return $('#aerr').textContent=r.error.message;
+    S.contas=c?S.contas.map(x=>x.id===c.id?r.data:x):S.contas.concat(r.data);
+    $('#modalRoot').innerHTML=''; toast('Conta salva ✓'); render(); };
+}
+async function delConta(id){
+  if(S.contas.length<=1) return toast('Mantenha pelo menos uma conta.');
+  if(!confirm('Excluir esta conta? Os lançamentos ficam sem conta associada.')) return;
+  const u = await sb.from('transacoes').update({conta_id:null}).eq('conta_id',id);
+  if(u.error) return toast('Erro: '+u.error.message);
+  const { error } = await sb.from('contas').delete().eq('id',id);
+  if(error) return toast('Erro: '+error.message);
+  S.tx.forEach(t=>{ if(t.conta_id===id) t.conta_id=null; }); S.contas=S.contas.filter(c=>c.id!==id); render();
+}
+
+sb.auth.onAuthStateChange((ev)=>{ if(ev==='SIGNED_OUT') boot(); });
+boot();
+</script>
+</body>
+</html>
