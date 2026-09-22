@@ -206,7 +206,7 @@ function saldoAte(dataLimite, contaId){
 function periodOptions(sel){ return [['mes','Mês atual'],['tri','Trimestre'],['ano','Ano'],['custom','Personalizado']]
   .map(([v,l])=>`<option value="${v}" ${sel===v?'selected':''}>${l}</option>`).join(''); }
 const contaOptions = sel => `<option value="">Todas as contas</option>`+S.contas.map(c=>`<option value="${c.id}" ${sel===c.id?'selected':''}>${esc(c.nome)}</option>`).join('');
-const chipCat = c => c ? `<span class="chip" style="background:${esc(c.cor)}">${esc(c.icone)} ${esc(c.nome)}</span>` : '—';
+const chipCat = c => c ? `<span class="chip" style="background:${esc(c.cor)}">${esc(c.nome)}</span>` : '—';
 
 function mkChart(id, cfg){ const el=document.getElementById(id); if(el) charts[id]=new Chart(el,cfg); }
 const noData = (id,msg='Sem dados no período') => { const el=document.getElementById(id); if(el) el.parentElement.innerHTML=`<p class="muted" style="text-align:center;padding-top:100px">${msg}</p>`; };
@@ -302,7 +302,7 @@ function renderDash(){
   if(f.selCat) detail = detail.filter(t=>t.categoria_id===f.selCat);
   if(f.selMes) detail = detail.filter(t=>t.data.slice(0,7)===f.selMes);
   const chipsEl = $('#dashChips'); let chips='';
-  if(f.selCat){ const c=catById(f.selCat); if(c) chips+=`<span class="fchip" style="background:${esc(c.cor)}">${esc(c.icone)} ${esc(c.nome)} <b data-clear="cat">✕</b></span>`; }
+  if(f.selCat){ const c=catById(f.selCat); if(c) chips+=`<span class="fchip" style="background:${esc(c.cor)}">${esc(c.nome)} <b data-clear="cat">✕</b></span>`; }
   if(f.selMes) chips+=`<span class="fchip" style="background:#4f46e5">${esc(f.selMes.split('-').reverse().join('/'))} <b data-clear="mes">✕</b></span>`;
   chipsEl.innerHTML = chips || '<span class="muted">Clique numa categoria ou mês nos gráficos acima para filtrar</span>';
   chipsEl.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{ if(b.dataset.clear==='cat') f.selCat=''; else f.selMes=''; renderDash(); });
@@ -401,8 +401,7 @@ function openTx(id){
       </div>
       <label class="f">Categoria<select id="fc" required></select></label>
       <div id="newcat" class="hidden card" style="margin-bottom:12px;padding:10px">
-        <div class="row2"><label class="f">Nome<input id="ncn"></label><label class="f">Ícone (emoji)<input id="nci" value="🏷️" maxlength="4"></label></div>
-        <label class="f">Cor<input id="ncc" type="color" value="#6366f1" style="height:36px;padding:2px"></label>
+        <div class="row2"><label class="f">Nome<input id="ncn"></label><label class="f">Cor<input id="ncc" type="color" value="#6366f1" style="height:36px;padding:2px"></label></div>
         <button type="button" class="btn sm" id="ncsave">Criar categoria</button>
       </div>
       <div class="row2">
@@ -424,7 +423,7 @@ function openTx(id){
 
   const fillCats = sel => {
     const opts = S.cats.filter(c=>c.tipo===tipo && (!c.oculta || c.id===sel));
-    $('#fc').innerHTML = `<option value="">Selecione…</option>` + opts.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${esc(c.icone)} ${esc(c.nome)}</option>`).join('') + `<option value="__new">+ Criar nova categoria…</option>`;
+    $('#fc').innerHTML = `<option value="">Selecione…</option>` + opts.map(c=>`<option value="${c.id}" ${c.id===sel?'selected':''}>${esc(c.nome)}</option>`).join('') + `<option value="__new">+ Criar nova categoria…</option>`;
   };
   const setTipo = t => { tipo=t;
     root.querySelectorAll('.seg button').forEach(b=>{b.className = b.dataset.t===t ? 'on '+(t==='despesa'?'d':'r') : '';});
@@ -435,7 +434,7 @@ function openTx(id){
   $('#fr').onchange=e=>$('#frq').classList.toggle('hidden',!e.target.checked);
   $('#ncsave').onclick=async()=>{
     const nome=$('#ncn').value.trim(); if(!nome) return $('#ferr').textContent='Informe o nome da categoria.';
-    const { data, error } = await sb.from('categorias').insert({usuario_id:S.user.id,nome,tipo,cor:$('#ncc').value,icone:$('#nci').value||'🏷️'}).select().single();
+    const { data, error } = await sb.from('categorias').insert({usuario_id:S.user.id,nome,tipo,cor:$('#ncc').value,icone:'🏷️'}).select().single();
     if(error) return $('#ferr').textContent=error.message;
     S.cats.push(data); $('#ferr').textContent=''; fillCats(data.id); $('#newcat').classList.add('hidden'); };
   $('#fcancel').onclick=()=>root.innerHTML='';
@@ -469,7 +468,7 @@ function renderCats(){
   const count = id => S.tx.filter(t=>t.categoria_id===id).length;
   const blk = (tipo,titulo)=>`<div class="card"><h3>${titulo}</h3>${S.cats.filter(c=>c.tipo===tipo).map(c=>`
     <div class="catrow" style="${c.oculta?'opacity:.5':''}">
-      <span class="chip" style="background:${esc(c.cor)}">${esc(c.icone)}</span>
+      <span class="dot" style="background:${esc(c.cor)}"></span>
       <span class="n">${esc(c.nome)} ${c.is_padrao?'<span class="muted">(padrão)</span>':''}${c.oculta?' <span class="muted">(oculta)</span>':''}<br><span class="muted">${count(c.id)} lançamento(s)</span></span>
       <button class="btn sec sm" onclick="editCat('${c.id}')">Editar</button>
       ${c.is_padrao?`<button class="btn sec sm" onclick="toggleHide('${c.id}')">${c.oculta?'Mostrar':'Ocultar'}</button>`:`<button class="btn sec sm" onclick="delCat('${c.id}')">Excluir</button>`}
@@ -481,16 +480,15 @@ function editCat(id){
   const c = id ? catById(id) : null;
   $('#modalRoot').innerHTML = `<div class="modal"><div class="mbox"><h2>${c?'Editar':'Nova'} categoria</h2><form id="cf">
     <label class="f">Nome<input id="cn" required value="${esc(c?.nome||'')}"></label>
-    <div class="row2"><label class="f">Ícone (emoji)<input id="ci" maxlength="4" value="${esc(c?.icone||'🏷️')}"></label>
-    <label class="f">Cor<input id="cc" type="color" value="${c?.cor||'#6366f1'}" style="height:38px;padding:2px"></label></div>
+    <label class="f">Cor<input id="cc" type="color" value="${c?.cor||'#6366f1'}" style="height:38px;padding:2px"></label>
     ${c?'':`<label class="f">Tipo<select id="ct"><option value="despesa">Despesa</option><option value="receita">Receita</option></select></label>`}
     <div class="err" id="cerr"></div>
     <div class="acts"><button class="btn">Salvar</button><button type="button" class="btn sec" id="cx">Cancelar</button></div></form></div></div>`;
   $('#cx').onclick=()=>$('#modalRoot').innerHTML='';
   $('#cf').onsubmit=async e=>{ e.preventDefault();
-    const row={nome:$('#cn').value.trim(),icone:$('#ci').value||'🏷️',cor:$('#cc').value};
+    const row={nome:$('#cn').value.trim(),cor:$('#cc').value};
     const r = c ? await sb.from('categorias').update(row).eq('id',c.id).select().single()
-                : await sb.from('categorias').insert({...row,tipo:$('#ct').value,usuario_id:S.user.id}).select().single();
+                : await sb.from('categorias').insert({...row,icone:'🏷️',tipo:$('#ct').value,usuario_id:S.user.id}).select().single();
     if(r.error) return $('#cerr').textContent=r.error.message;
     S.cats = c ? S.cats.map(x=>x.id===c.id?r.data:x) : S.cats.concat(r.data);
     S.cats.sort((a,b)=>a.nome.localeCompare(b.nome)); $('#modalRoot').innerHTML=''; toast('Categoria salva ✓'); render(); };
@@ -505,7 +503,7 @@ async function delCat(id){
   const outras=S.cats.filter(x=>x.tipo===c.tipo&&x.id!==id);
   $('#modalRoot').innerHTML=`<div class="modal"><div class="mbox"><h2>Excluir "${esc(c.nome)}"</h2>
     <p>Há ${n} lançamento(s) nesta categoria. Escolha para qual categoria movê-los antes de excluir:</p>
-    <label class="f">Realocar para<select id="rc">${outras.map(x=>`<option value="${x.id}">${esc(x.icone)} ${esc(x.nome)}</option>`).join('')}</select></label>
+    <label class="f">Realocar para<select id="rc">${outras.map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join('')}</select></label>
     <div class="err" id="rerr"></div>
     <div class="acts"><button class="btn dng" id="rok">Realocar e excluir</button><button class="btn sec" id="rx">Cancelar</button></div></div></div>`;
   $('#rx').onclick=()=>$('#modalRoot').innerHTML='';
