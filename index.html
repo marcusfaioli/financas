@@ -61,6 +61,11 @@ td.r,th.r{text-align:right}
 .err{color:var(--bad);font-size:13px;min-height:18px;margin:6px 0}
 .muted{color:var(--mut);font-size:13px}
 .cbox{position:relative;height:280px}
+.cbox.lg{height:360px}
+.cbox.sm{height:190px}
+.fchip{display:inline-flex;align-items:center;gap:6px;padding:3px 8px 3px 9px;border-radius:99px;font-size:12px;color:#fff}
+.fchip b{cursor:pointer;font-weight:700;opacity:.85}
+.fchip b:hover{opacity:1}
 .dot{width:12px;height:12px;border-radius:50%;display:inline-block}
 .catrow{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f1f3}
 .catrow .n{flex:1}
@@ -112,7 +117,7 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const S = { user:null, cats:[], contas:[], tx:[], view:'dash',
-  dash:{per:'mes', ini:'', fim:'', conta:'', tipo:''},
+  dash:{per:'mes', ini:'', fim:'', conta:'', tipo:'', selCat:'', selMes:''},
   ext:{cat:'', conta:'', tipo:'', q:'', ini:'', fim:''} };
 const charts = {};
 const $ = s => document.querySelector(s);
@@ -231,11 +236,22 @@ function renderDash(){
     <div class="card kpi"><div class="l">Saídas no período</div><div class="v neg">${brl(sai)}</div></div>
     <div class="card kpi"><div class="l">Resultado</div><div class="v ${res>=0?'pos':'neg'}">${brl(res)}</div></div>
   </div>
-  <div class="grid g2">
-    <div class="card"><h3>Gastos por categoria</h3><div class="cbox"><canvas id="chDonut"></canvas></div></div>
-    <div class="card"><h3>Receitas x despesas por mês</h3><div class="cbox"><canvas id="chMes"></canvas></div></div>
-    <div class="card"><h3>Evolução do saldo</h3><div class="cbox"><canvas id="chSaldo"></canvas></div></div>
-    <div class="card"><h3>Top 5 categorias de maior gasto</h3><div class="cbox"><canvas id="chTop"></canvas></div></div>
+  <div class="card" style="margin-bottom:12px">
+    <h3>Gastos por categoria <span class="muted" style="font-weight:400">— clique numa fatia para filtrar o detalhamento</span></h3>
+    <div class="cbox lg"><canvas id="chDonut"></canvas></div>
+  </div>
+  <div class="grid g2" style="margin-bottom:12px">
+    <div class="card"><h3>Receitas x despesas por mês</h3><div class="cbox sm"><canvas id="chMes"></canvas></div></div>
+    <div class="card"><h3>Top 5 categorias de maior gasto</h3><div class="cbox sm"><canvas id="chTop"></canvas></div></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <h3 style="margin:0">Detalhamento dos lançamentos</h3>
+      <div id="dashChips" style="display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+    </div>
+    <div class="tw"><table><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Conta</th><th class="r">Valor</th></tr></thead>
+    <tbody id="dashDetailBody"></tbody></table></div>
+    <p class="muted" id="dashDetailFoot"></p>
   </div>`;
   $('#dper').onchange=e=>{f.per=e.target.value;renderDash()};
   $('#dini')&&($('#dini').onchange=e=>{f.ini=e.target.value;renderDash()});
@@ -243,35 +259,59 @@ function renderDash(){
   $('#dconta').onchange=e=>{f.conta=e.target.value;renderDash()};
   $('#dtipo').onchange=e=>{f.tipo=e.target.value;renderDash()};
 
-  // Gastos por categoria (donut) e Top 5 — só despesas, respeitando filtro de tipo
+  // Gastos por categoria (donut) e Top 5 — só despesas, respeitando filtro de tipo e o mês selecionado no gráfico ao lado
+  let baseCat = filtered.filter(t=>t.tipo==='despesa');
+  if(f.selMes) baseCat = baseCat.filter(t=>t.data.slice(0,7)===f.selMes);
   const porCat = {};
-  filtered.filter(t=>t.tipo==='despesa').forEach(t=>porCat[t.categoria_id]=(porCat[t.categoria_id]||0)+Number(t.valor));
+  baseCat.forEach(t=>porCat[t.categoria_id]=(porCat[t.categoria_id]||0)+Number(t.valor));
   const arr = Object.entries(porCat).map(([id,v])=>({c:catById(id),v})).filter(x=>x.c).sort((a,b)=>b.v-a.v);
+  const catClick = (evt,elements,list) => { if(!elements.length) return; const id=list[elements[0].index].c.id;
+    f.selCat = f.selCat===id ? '' : id; renderDash(); };
   if(!arr.length){ noData('chDonut'); noData('chTop'); }
   else{
-    mkChart('chDonut',{type:'doughnut',data:{labels:arr.map(x=>x.c.nome),datasets:[{data:arr.map(x=>x.v),backgroundColor:arr.map(x=>x.c.cor)}]},
-      options:{maintainAspectRatio:false,plugins:{legend:{position:'right'},tooltip:{callbacks:{label:c=>`${c.label}: ${brl(c.raw)}`}}}}});
+    mkChart('chDonut',{type:'doughnut',data:{labels:arr.map(x=>x.c.nome),datasets:[{data:arr.map(x=>x.v),backgroundColor:arr.map(x=>x.c.cor),
+        borderColor:arr.map(x=>x.c.id===f.selCat?'#111827':'#fff'),borderWidth:arr.map(x=>x.c.id===f.selCat?3:1)}]},
+      options:{maintainAspectRatio:false,onClick:(e,el)=>catClick(e,el,arr),
+        plugins:{legend:{position:'right',labels:{boxWidth:12,padding:12}},tooltip:{callbacks:{label:c=>`${c.label}: ${brl(c.raw)}`}}}}});
+    charts.chDonut.canvas.style.cursor='pointer';
     const top=arr.slice(0,5);
     mkChart('chTop',{type:'bar',data:{labels:top.map(x=>x.c.nome),datasets:[{data:top.map(x=>x.v),backgroundColor:top.map(x=>x.c.cor)}]},
-      options:{indexAxis:'y',maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>brl(c.raw)}}}}});
+      options:{indexAxis:'y',maintainAspectRatio:false,onClick:(e,el)=>catClick(e,el,top),
+        plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>brl(c.raw)}}}}});
+    charts.chTop.canvas.style.cursor='pointer';
   }
-  // Receitas x despesas por mês
+  // Receitas x despesas por mês — respeita a categoria selecionada no gráfico de pizza/top 5
+  let baseMes = filtered;
+  if(f.selCat) baseMes = baseMes.filter(t=>t.categoria_id===f.selCat);
   const meses = {};
-  filtered.forEach(t=>{ const k=t.data.slice(0,7); meses[k]=meses[k]||{r:0,d:0}; meses[k][t.tipo==='receita'?'r':'d']+=Number(t.valor); });
+  baseMes.forEach(t=>{ const k=t.data.slice(0,7); meses[k]=meses[k]||{r:0,d:0}; meses[k][t.tipo==='receita'?'r':'d']+=Number(t.valor); });
   const ks = Object.keys(meses).sort();
   if(!ks.length) noData('chMes');
-  else mkChart('chMes',{type:'bar',data:{labels:ks.map(k=>k.split('-').reverse().join('/')),datasets:[
-      {label:'Receitas',data:ks.map(k=>meses[k].r),backgroundColor:'#22c55e'},
-      {label:'Despesas',data:ks.map(k=>meses[k].d),backgroundColor:'#ef4444'}]},
-    options:{maintainAspectRatio:false,plugins:{tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${brl(c.raw)}`}}}}});
-  // Evolução do saldo (diário no período, limitado a hoje se período for aberto no futuro)
-  const fimG = fim<hoje ? fim : (fim>hoje && f.per!=='custom' ? fim : fim);
-  const first = ini==='0000-01-01' ? (S.tx.length?S.tx[S.tx.length-1].data:hoje) : ini;
-  const last = fimG==='9999-12-31' ? hoje : fimG;
-  const pts = saldoSerie(first,last,f.conta);
-  if(pts.labels.length<1) noData('chSaldo');
-  else mkChart('chSaldo',{type:'line',data:{labels:pts.labels.map(fmtD),datasets:[{label:'Saldo',data:pts.data,borderColor:'#4f46e5',backgroundColor:'rgba(79,70,229,.1)',fill:true,pointRadius:0,tension:.2}]},
-    options:{maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>brl(c.raw)}}}}});
+  else{
+    mkChart('chMes',{type:'bar',data:{labels:ks.map(k=>k.split('-').reverse().join('/')),datasets:[
+        {label:'Receitas',data:ks.map(k=>meses[k].r),backgroundColor:'#22c55e'},
+        {label:'Despesas',data:ks.map(k=>meses[k].d),backgroundColor:'#ef4444'}]},
+      options:{maintainAspectRatio:false,onClick:(e,el)=>{ if(!el.length) return; const mes=ks[el[0].index];
+          f.selMes = f.selMes===mes ? '' : mes; renderDash(); },
+        plugins:{tooltip:{callbacks:{label:c=>`${c.dataset.label}: ${brl(c.raw)}`}}}}});
+    charts.chMes.canvas.style.cursor='pointer';
+  }
+
+  // Detalhamento — período/conta/tipo do topo + categoria/mês selecionados nos gráficos
+  let detail = filtered;
+  if(f.selCat) detail = detail.filter(t=>t.categoria_id===f.selCat);
+  if(f.selMes) detail = detail.filter(t=>t.data.slice(0,7)===f.selMes);
+  const chipsEl = $('#dashChips'); let chips='';
+  if(f.selCat){ const c=catById(f.selCat); if(c) chips+=`<span class="fchip" style="background:${esc(c.cor)}">${esc(c.icone)} ${esc(c.nome)} <b data-clear="cat">✕</b></span>`; }
+  if(f.selMes) chips+=`<span class="fchip" style="background:#4f46e5">${esc(f.selMes.split('-').reverse().join('/'))} <b data-clear="mes">✕</b></span>`;
+  chipsEl.innerHTML = chips || '<span class="muted">Clique numa categoria ou mês nos gráficos acima para filtrar</span>';
+  chipsEl.querySelectorAll('[data-clear]').forEach(b=>b.onclick=()=>{ if(b.dataset.clear==='cat') f.selCat=''; else f.selMes=''; renderDash(); });
+  $('#dashDetailBody').innerHTML = detail.map(t=>{const c=catById(t.categoria_id), ct=S.contas.find(x=>x.id===t.conta_id);
+      return `<tr><td>${fmtD(t.data)}</td><td>${esc(t.descricao)||'<span class="muted">—</span>'}</td><td>${chipCat(c)}</td><td>${esc(ct?.nome||'—')}</td>
+      <td class="r ${t.tipo==='receita'?'pos':'neg'}">${t.tipo==='receita'?'+':'−'} ${brl(t.valor)}</td></tr>`; }).join('')
+    || '<tr><td colspan="5" class="muted" style="text-align:center;padding:24px">Nenhum lançamento encontrado.</td></tr>';
+  const dsum = detail.reduce((a,t)=>a+sgn(t.tipo)*Number(t.valor),0);
+  $('#dashDetailFoot').innerHTML = `${detail.length} lançamento(s) · Total: <b class="${dsum>=0?'pos':'neg'}">${brl(dsum)}</b>`;
 }
 function saldoSerie(ini,fim,contaId){
   const ids=new Set(contasSel(contaId).map(c=>c.id));
